@@ -1,0 +1,23 @@
+# Environment — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build / Netlify
+.netlify/
+dist/
+
+# Design source (not needed in production)
+design-handoff/
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

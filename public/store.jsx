@@ -2,7 +2,9 @@
 // Optimistic UI: state updates locally immediately, then confirmed via API.
 // On API error the local change is rolled back and a toast is shown.
 
-const { useState, useCallback, useRef } = React;
+const { useState, useCallback, useRef, useEffect } = React;
+
+const BACKUP_KEY = "workflow_backup";
 
 // ── API helper ────────────────────────────────────────────────────────────────
 async function api(method, path, body) {
@@ -25,6 +27,15 @@ function useWorkflowStore(initialItems) {
   const [pending, setPending] = useState({});
   const [toasts, setToasts] = useState([]);
   const toastIdRef = useRef(0);
+
+  const [lastBackup, setLastBackup] = useState(() => {
+    try {
+      const b = localStorage.getItem(BACKUP_KEY);
+      return b ? JSON.parse(b).savedAt : null;
+    } catch { return null; }
+  });
+  const itemsRef = useRef(items);
+  useEffect(() => { itemsRef.current = items; }, [items]);
 
   const pushToast = useCallback((msg, kind = "info") => {
     const id = ++toastIdRef.current;
@@ -261,11 +272,24 @@ function useWorkflowStore(initialItems) {
     [setSyncing, clearSyncing, rollback, pushToast]
   );
 
+  const saveBackup = useCallback(() => {
+    const savedAt = new Date().toISOString();
+    try {
+      localStorage.setItem(BACKUP_KEY, JSON.stringify({ items: itemsRef.current, savedAt }));
+      setLastBackup(savedAt);
+      pushToast("Backup saved", "ok");
+    } catch {
+      pushToast("✗ Backup failed · storage full?", "error");
+    }
+  }, [pushToast]);
+
   return {
     items,
     setItems,
     pending,
     toasts,
+    lastBackup,
+    saveBackup,
     actions: { completeStep, undoStep, blockStep, unblockStep, setBIC, setProperty, pushToast },
   };
 }

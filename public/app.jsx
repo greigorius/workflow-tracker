@@ -169,6 +169,16 @@ function App() {
         </div>
 
         <div className="topbar-right">
+          <button
+            className="save-backup-btn"
+            onClick={store.saveBackup}
+            title={store.lastBackup ? `Last saved ${new Date(store.lastBackup).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "No backup yet"}
+          >
+            <i className="ti ti-device-floppy" aria-hidden="true"></i>
+            {store.lastBackup
+              ? new Date(store.lastBackup).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              : "Save"}
+          </button>
           <div className={`sync-pill ${anyPending ? "is-syncing" : ""}`}>
             <span className="sync-dot"></span>
             <span className="sync-lbl">

@@ -149,6 +149,22 @@ kbd {
   border-color: var(--border2);
 }
 
+.save-backup-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.save-backup-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
 .sync-pill {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 5px 11px;

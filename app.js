@@ -14,7 +14,7 @@ const TASKS_DB    = process.env.NOTION_DB_TASKS;
 const PROJECTS_DB = process.env.NOTION_DB_PROJECTS;
 
 // Total steps — keep in sync with TOTAL_STEPS in public/data.js
-const TOTAL_STEPS = 14;
+const TOTAL_STEPS = 16;
 
 // ─── Step ↔ DM Phase mapping ─────────────────────────────────────────────────
 const STEP_TO_DM_PHASE = [
@@ -32,6 +32,8 @@ const STEP_TO_DM_PHASE = [
   "Schedule Production",        // 11 — Issue revision for sign off
   "Production Pack",            // 12 — Production Pack
   "Schedule Task",              // 13 — Schedule Task
+  "Install",                    // 14 — Install
+  "As Built",                   // 15 — As Built
 ];
 
 const DM_PHASE_TO_STEP = {};
@@ -43,6 +45,7 @@ DM_PHASE_TO_STEP["Phase Blocked"]   = -1;
 
 function itemStatusForStep(stepIdx) {
   if (stepIdx >= TOTAL_STEPS) return "Complete";
+  if (stepIdx >= 14)  return "On Site";
   if (stepIdx >= 12)  return "In Production";
   if (stepIdx === 8)  return "1st Comments Received";
   if (stepIdx >= 9)   return "In Design - Revisions";

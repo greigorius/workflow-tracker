@@ -9,6 +9,7 @@ window.PHASES = [
   { label: "REVISION",      steps: [8, 9, 10],      short: "Revision" },
   { label: "SIGN OFF",      steps: [11],            short: "Sign off" },
   { label: "PRODUCTION",    steps: [12, 13],        short: "Prod." },
+  { label: "SITE",          steps: [14, 15],        short: "Site" },
 ];
 
 window.STEPS = [
@@ -26,6 +27,8 @@ window.STEPS = [
   { name: "Issue revision for sign off",             short: "Sign off" },
   { name: "Production Pack",                         short: "Pack" },
   { name: "Schedule Task",                           short: "Schedule" },
+  { name: "Install",                                 short: "Install" },
+  { name: "As Built",                               short: "As Built" },
 ];
 
 // Steps that show property inputs in the Inspector
@@ -79,7 +82,7 @@ window.cellStatus = function (item, idx) {
 };
 
 // Total number of workflow steps (update here if steps are added/removed)
-window.TOTAL_STEPS = 14;
+window.TOTAL_STEPS = 16;
 
 window.itemStatus = function (item) {
   if (item.progress >= window.TOTAL_STEPS) return "complete";

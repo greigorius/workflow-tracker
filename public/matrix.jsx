@@ -1,8 +1,45 @@
-// Matrix grid view — items × 12 step columns. One click per cell.
-// Cell states: locked / active / done / blocked. Hover for inspector,
-// click active cell to complete, right-click or shift-click to block.
+// Matrix grid view — items × step columns.
+// Cell states: locked / active / done / blocked.
+// Multi-phase active cells show a sub-phase checklist popup on click.
 
 const { useState: useStateM, useMemo: useMemoM, useRef: useRefM, useEffect: useEffectM, useCallback: useCallbackM } = React;
+
+function SubPhasePopup({ step, subPhaseIdx, itemId, stepIdx, actions, onClose }) {
+  const ref = useRefM(null);
+  useEffectM(() => {
+    function handler(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  return (
+    <div className="subphase-popup" ref={ref} onClick={(e) => e.stopPropagation()}>
+      <div className="subphase-popup-title">{step.short}</div>
+      {step.dmPhases.map((phase, i) => {
+        const done   = i < subPhaseIdx;
+        const active = i === subPhaseIdx;
+        return (
+          <button
+            key={phase}
+            className={`subphase-item ${done ? "sp-done" : active ? "sp-active" : "sp-locked"}`}
+            onClick={() => {
+              if (active) {
+                actions.advanceSubPhase(itemId, stepIdx, i);
+                onClose();
+              }
+            }}
+            disabled={!active}
+          >
+            <i className={`ti ${done ? "ti-check" : active ? "ti-circle-dot" : "ti-lock"}`} aria-hidden="true"></i>
+            {phase}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 function MatrixView({ items, pending, actions, latency, density, onOpenInspector, focusedCell, setFocusedCell }) {
   const gridRef = useRefM(null);
@@ -30,7 +67,12 @@ function MatrixView({ items, pending, actions, latency, density, onOpenInspector
       if (e.key === " " || e.key === "Enter") {
         e.preventDefault();
         if (idx === item.progress && item.blockerStep === null) {
-          actions.completeStep(item.notionId, idx, latency);
+          const step = window.STEPS[idx];
+          if (step.dmPhases && step.dmPhases.length > 1) {
+            actions.advanceSubPhase(item.notionId, idx, item.subPhaseIdx || 0);
+          } else {
+            actions.completeStep(item.notionId, idx, latency);
+          }
           setFocusedCell({ itemId: item.notionId, idx: Math.min(window.TOTAL_STEPS - 1, idx + 1) });
         } else if (idx === item.progress - 1) {
           actions.undoStep(item.notionId, idx, latency);
@@ -189,10 +231,18 @@ function MatrixCell({ item, idx, pending, actions, latency, onOpenInspector, foc
   const isBlocked = status === "blocked";
   const isLocked = status === "locked";
 
+  const step = window.STEPS[idx];
+  const isMultiPhase = isActive && step.dmPhases && step.dmPhases.length > 1;
+  const [showPopup, setShowPopup] = useStateM(false);
+
   const handleClick = (e) => {
     setFocusedCell({ itemId: item.notionId, idx });
     if (isActive) {
-      actions.completeStep(item.notionId, idx, latency);
+      if (isMultiPhase) {
+        setShowPopup((v) => !v);
+      } else {
+        actions.completeStep(item.notionId, idx, latency);
+      }
     } else if (isDone && idx === item.progress - 1) {
       actions.undoStep(item.notionId, idx, latency);
     } else if (isBlocked) {
@@ -238,11 +288,26 @@ function MatrixCell({ item, idx, pending, actions, latency, onOpenInspector, foc
       <div className="mx-cell-inner">
         {isDone && <i className="ti ti-check mx-cell-icon" aria-hidden="true"></i>}
         {isBlocked && <i className="ti ti-alert-triangle mx-cell-icon" aria-hidden="true"></i>}
-        {isActive && <span className="mx-active-pulse"></span>}
+        {isActive && !isMultiPhase && <span className="mx-active-pulse"></span>}
+        {isActive && isMultiPhase && (
+          <span className="mx-multi-pip" title={`Sub-phase ${(item.subPhaseIdx || 0) + 1} of ${step.dmPhases.length}`}>
+            {(item.subPhaseIdx || 0) + 1}/{step.dmPhases.length}
+          </span>
+        )}
         {isLocked && <span className="mx-locked-dot"></span>}
         {hasProps && !isActive && <span className="mx-prop-pip" title="Properties saved"></span>}
         {needsProps && <span className="mx-prop-pip mx-prop-pip-active" title="Has properties to fill"></span>}
         {pending && <span className="mx-sync-dot" title="Syncing to Notion…"></span>}
+        {showPopup && (
+          <SubPhasePopup
+            step={step}
+            subPhaseIdx={item.subPhaseIdx || 0}
+            itemId={item.notionId}
+            stepIdx={idx}
+            actions={actions}
+            onClose={() => setShowPopup(false)}
+          />
+        )}
       </div>
     </td>
   );

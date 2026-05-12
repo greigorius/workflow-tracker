@@ -558,6 +558,62 @@ kbd {
   animation: syncPulse 1s ease-in-out infinite;
 }
 
+.mx-multi-pip {
+  font-size: 8px;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* ── Sub-phase popup ────────────────────────────────────────────────── */
+.subphase-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 120;
+  min-width: 200px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.subphase-popup-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  padding: 4px 8px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.subphase-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  text-align: left;
+  cursor: default;
+  color: var(--text-soft);
+  transition: background .1s;
+}
+.subphase-item.sp-active { color: var(--text); cursor: pointer; }
+.subphase-item.sp-active:hover { background: var(--surface3); }
+.subphase-item.sp-active .ti { color: var(--accent); }
+.subphase-item.sp-done { color: var(--c-green); }
+.subphase-item.sp-done .ti { color: var(--c-green); }
+.subphase-item.sp-locked { opacity: .4; }
+
 .mx-cell-progress {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);

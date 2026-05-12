@@ -89,6 +89,31 @@ const STEP_BIC = [
   "DM",         // 19 — Close
 ];
 
+// Sub-phases per step — mirrors dmPhases in public/data.js.
+// Used to determine the active sub-phase index from the current DM Phase value.
+const STEP_SUB_PHASES = [
+  ["Agree Scope"],                                                                 // 0  Initiate
+  ["Agree Scope"],                                                                 // 1  Scope
+  ["Set Up Item & Drawing No's"],                                                  // 2  Launch
+  ["Review Design Intent", "Create Handover Pack"],                                // 3  Gather and Share
+  ["Handover"],                                                                    // 4  DT Review
+  ["Submit RFI's", "Create Samples"],                                              // 5  Raise Submittals
+  ["Coordinate Trades", "Coordinate Model"],                                       // 6  Trade Coordination
+  ["Review Drawings"],                                                             // 7  DT Draft
+  ["Submit Drawings"],                                                             // 8  Approval Submission
+  ["Pending Response"],                                                            // 9  Client Response
+  ["Review Comments", "Coordinate Trades", "Coordinate Model", "Submit RFI's"],   // 10 Query Comments
+  ["Handover", "Review Drawings"],                                                 // 11 DT Revision
+  ["Submit Drawings"],                                                             // 12 Revised Submission
+  ["Pending Response"],                                                            // 13 Client Sign Off
+  ["Handover", "Review Drawings"],                                                 // 14 Pre-Production
+  ["Schedule Production"],                                                         // 15 Production Hand Off
+  ["Production Coordination"],                                                     // 16 Pre-Install
+  ["Site Coordination"],                                                           // 17 Install
+  ["Handover", "Review Drawings", "Submit Drawings"],                              // 18 Practical Completion
+  ["Final Report"],                                                                // 19 Close
+];
+
 // Fallback: DM Phase → step index for items that predate the "DM Step" property.
 // Where multiple steps share a DM Phase, map to the earliest occurrence.
 const DM_PHASE_TO_STEP = {
@@ -217,6 +242,14 @@ function notionPageToItem(page, projectsMap) {
     progress = 0; blockerStep = 0;
   }
 
+  // Determine active sub-phase index within the current step
+  const subPhases = STEP_SUB_PHASES[progress] || [];
+  let subPhaseIdx = 0;
+  if (subPhases.length > 1 && dmPhase) {
+    const sp = subPhases.indexOf(dmPhase);
+    if (sp > 0) subPhaseIdx = sp;
+  }
+
   const blockerArr  = p["Blocker"]?.multi_select || [];
   const blockerText = blockerArr.map((b) => b.name).join(", ");
   const rfiCount    = (p["Related RFI"]?.relation || []).length;
@@ -237,7 +270,7 @@ function notionPageToItem(page, projectsMap) {
 
   return {
     id, notionId: page.id, name, project, bic, priority,
-    progress, blockerStep, blockerText: blockerText || "", props,
+    progress, subPhaseIdx, blockerStep, blockerText: blockerText || "", props,
   };
 }
 
@@ -373,6 +406,31 @@ app.patch("/api/items/:pageId/unblock", async (req, res) => {
     });
     res.json({ ok: true });
   } catch (err) { console.error("unblock", err); res.status(500).json({ error: err.message }); }
+});
+
+app.patch("/api/items/:pageId/subphase", async (req, res) => {
+  const { pageId } = req.params;
+  const { stepIdx, subPhaseIdx } = req.body;
+  const subPhases = STEP_SUB_PHASES[stepIdx] || [];
+  const nextSubPhaseIdx = subPhaseIdx + 1;
+  try {
+    if (nextSubPhaseIdx >= subPhases.length) {
+      // Last sub-phase checked — advance to next step
+      const nextStep = Math.min(stepIdx + 1, TOTAL_STEPS);
+      await notion.pages.update({
+        page_id: pageId,
+        properties: { ...stepNotionProps(nextStep), "Blocker": { multi_select: [] } },
+      });
+      res.json({ ok: true, advanced: true, newStep: nextStep });
+    } else {
+      // Advance DM Phase to next sub-phase; DM Step stays the same
+      await notion.pages.update({
+        page_id: pageId,
+        properties: { "DM Phase": { select: { name: subPhases[nextSubPhaseIdx] } } },
+      });
+      res.json({ ok: true, advanced: false, newSubPhaseIdx: nextSubPhaseIdx });
+    }
+  } catch (err) { console.error("subphase", err); res.status(500).json({ error: err.message }); }
 });
 
 app.patch("/api/items/:pageId/bic", async (req, res) => {

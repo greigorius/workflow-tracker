@@ -72,7 +72,7 @@ function useWorkflowStore(initialItems) {
         prev = items;
         return items.map((it) =>
           it.notionId === itemId
-            ? { ...it, progress: idx + 1, blockerStep: null, blockerText: "" }
+            ? { ...it, progress: idx + 1, subPhaseIdx: 0, blockerStep: null, blockerText: "" }
             : it
         );
       });
@@ -109,7 +109,7 @@ function useWorkflowStore(initialItems) {
         notionId = item.notionId;
         prev = items;
         return items.map((it) =>
-          it.notionId === itemId ? { ...it, progress: idx } : it
+          it.notionId === itemId ? { ...it, progress: idx, subPhaseIdx: 0 } : it
         );
       });
 
@@ -272,6 +272,50 @@ function useWorkflowStore(initialItems) {
     [setSyncing, clearSyncing, rollback, pushToast]
   );
 
+  // ── advanceSubPhase ──────────────────────────────────────────────────────
+  const advanceSubPhase = useCallback(
+    (itemId, stepIdx, subPhaseIdx) => {
+      let notionId = null;
+      let prev = null;
+      const subPhases = window.STEPS[stepIdx]?.dmPhases || [];
+      const isLast = subPhaseIdx >= subPhases.length - 1;
+
+      setItems((items) => {
+        const item = items.find((i) => i.notionId === itemId);
+        if (!item || item.progress !== stepIdx) return items;
+        notionId = item.notionId;
+        prev = items;
+        return items.map((it) => {
+          if (it.notionId !== itemId) return it;
+          if (isLast) {
+            return { ...it, progress: stepIdx + 1, subPhaseIdx: 0, blockerStep: null, blockerText: "" };
+          }
+          return { ...it, subPhaseIdx: subPhaseIdx + 1 };
+        });
+      });
+
+      if (!notionId) return;
+
+      const cellKey = `${notionId}:${stepIdx}:sub`;
+      setSyncing(cellKey);
+
+      api("PATCH", `/api/items/${notionId}/subphase`, { stepIdx, subPhaseIdx })
+        .then((data) => {
+          clearSyncing(cellKey);
+          if (data.advanced) {
+            const stepName = window.STEPS[stepIdx]?.short ?? `Step ${stepIdx + 1}`;
+            pushToast(`✓ ${itemId} · ${stepName}`, "ok");
+          }
+        })
+        .catch((err) => {
+          clearSyncing(cellKey);
+          if (prev) rollback(prev);
+          pushToast(`✗ ${itemId} · ${err.message}`, "error");
+        });
+    },
+    [setSyncing, clearSyncing, rollback, pushToast]
+  );
+
   const saveBackup = useCallback(() => {
     const savedAt = new Date().toISOString();
     try {
@@ -290,7 +334,7 @@ function useWorkflowStore(initialItems) {
     toasts,
     lastBackup,
     saveBackup,
-    actions: { completeStep, undoStep, blockStep, unblockStep, setBIC, setProperty, pushToast },
+    actions: { completeStep, undoStep, blockStep, unblockStep, setBIC, setProperty, advanceSubPhase, pushToast },
   };
 }
 

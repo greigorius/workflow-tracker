@@ -2,46 +2,53 @@
 // INITIAL_ITEMS is no longer here — items are loaded live from Notion.
 
 window.PHASES = [
-  { label: "SETUP",         steps: [0, 1],          short: "Setup" },
-  { label: "DESIGN",        steps: [2, 3, 4],       short: "Design" },
-  { label: "COORDINATION",  steps: [5],             short: "Coord." },
-  { label: "APPROVAL",      steps: [6, 7],          short: "Approval" },
-  { label: "REVISION",      steps: [8, 9, 10],      short: "Revision" },
-  { label: "SIGN OFF",      steps: [11],            short: "Sign off" },
-  { label: "PRODUCTION",    steps: [12, 13],        short: "Prod." },
-  { label: "SITE",          steps: [14, 15],        short: "Site" },
+  { label: "SET UP",    steps: [0, 1, 2],                               short: "Set Up"    },
+  { label: "DESIGN",   steps: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],  short: "Design"    },
+  { label: "CLOSE OUT", steps: [14, 15, 16, 17, 18, 19],               short: "Close Out" },
 ];
 
+// Each step carries the Notion properties that should be set while it is active.
+// dmPhases: first entry is the primary DM Phase written on advance; extras are sub-phases
+//           the inspector can surface as a checklist.
+// bic: fixed Ball In Court for this step, or null when the user selects it.
+// canBlock: whether the block action is available on this step.
 window.STEPS = [
-  { name: "Set up scope",                            short: "Scope" },
-  { name: "Item number and programme",               short: "Item no." },
-  { name: "Design intent info and collab space",     short: "Intent" },
-  { name: "Hand off to DT for review",               short: "DT review" },
-  { name: "Raise initial RFIs",                      short: "RFIs" },
-  { name: "Coordinate with other trades",            short: "Trades" },
-  { name: "Review DT approval draft",                short: "DT draft" },
-  { name: "Issue for client approval",               short: "Client" },
-  { name: "Review client comments with DT",          short: "Comments" },
-  { name: "Coordinate queried comments",             short: "Queries" },
-  { name: "Review DT revision",                      short: "DT rev." },
-  { name: "Issue revision for sign off",             short: "Sign off" },
-  { name: "Production Pack",                         short: "Pack" },
-  { name: "Schedule Task",                           short: "Schedule" },
-  { name: "Install",                                 short: "Install" },
-  { name: "As Built",                               short: "As Built" },
+  // ── Set Up ─────────────────────────────────────────────────────────────────
+  { name: "Initiate",             short: "Initiate",   dmPhases: ["Agree Scope"],                                                      itemStatus: "Backlog",           bic: "DM",         canBlock: false },
+  { name: "Scope",                short: "Scope",      dmPhases: ["Agree Scope"],                                                      itemStatus: "Set Up",            bic: null,         canBlock: true  },
+  { name: "Launch",               short: "Launch",     dmPhases: ["Set Up Item & Drawing No's"],                                       itemStatus: "Set Up",            bic: "DM",         canBlock: false },
+  // ── Design ─────────────────────────────────────────────────────────────────
+  { name: "Gather and Share",     short: "Gather",     dmPhases: ["Review Design Intent", "Create Handover Pack"],                     itemStatus: "In Design",         bic: "DM",         canBlock: false },
+  { name: "DT Review",            short: "DT Review",  dmPhases: ["Handover"],                                                         itemStatus: "In Design",         bic: "DM",         canBlock: false },
+  { name: "Raise Submittals",     short: "Submittals", dmPhases: ["Submit RFI's", "Create Samples"],                                   itemStatus: "In Design",         bic: "DM",         canBlock: false },
+  { name: "Trade Coordination",   short: "Trades",     dmPhases: ["Coordinate Trades", "Coordinate Model"],                            itemStatus: "In Design",         bic: null,         canBlock: true  },
+  { name: "DT Draft",             short: "DT Draft",   dmPhases: ["Review Drawings"],                                                  itemStatus: "In Design",         bic: "DM",         canBlock: false },
+  { name: "Approval Submission",  short: "Submit",     dmPhases: ["Submit Drawings"],                                                  itemStatus: "In Design",         bic: "DM",         canBlock: false },
+  { name: "Client Response",      short: "Response",   dmPhases: ["Pending Response"],                                                 itemStatus: "Awaiting Approval", bic: "Contractor", canBlock: false },
+  { name: "Query Comments",       short: "Queries",    dmPhases: ["Review Comments", "Coordinate Trades", "Coordinate Model", "Submit RFI's"], itemStatus: "In Design", bic: null,         canBlock: true  },
+  { name: "DT Revision",          short: "DT Rev.",    dmPhases: ["Handover", "Review Drawings"],                                      itemStatus: "In Design",         bic: "DM",         canBlock: false },
+  { name: "Revised Submission",   short: "Re-Submit",  dmPhases: ["Submit Drawings"],                                                  itemStatus: "In Design",         bic: "DM",         canBlock: false },
+  { name: "Client Sign Off",      short: "Sign Off",   dmPhases: ["Pending Response"],                                                 itemStatus: "Awaiting Approval", bic: "Architect",  canBlock: false },
+  // ── Close Out ──────────────────────────────────────────────────────────────
+  { name: "Pre-Production",       short: "Pre-Prod.",  dmPhases: ["Handover", "Review Drawings"],                                      itemStatus: "In Design",         bic: "DM",         canBlock: false },
+  { name: "Production Hand Off",  short: "Prod. H/O",  dmPhases: ["Schedule Production"],                                              itemStatus: "In Design",         bic: "DM",         canBlock: false },
+  { name: "Pre-Install",          short: "Pre-Install",dmPhases: ["Production Coordination"],                                          itemStatus: "In Production",     bic: "Production", canBlock: false },
+  { name: "Install",              short: "Install",    dmPhases: ["Site Coordination"],                                                itemStatus: "On Site",           bic: "Site",       canBlock: false },
+  { name: "Practical Completion", short: "PC",         dmPhases: ["Handover", "Review Drawings", "Submit Drawings"],                   itemStatus: "In Design",         bic: "DM",         canBlock: false },
+  { name: "Close",                short: "Close",      dmPhases: ["Final Report"],                                                     itemStatus: "Close Out",         bic: "DM",         canBlock: false },
 ];
 
 // Steps that show property inputs in the Inspector
 window.STEP_PROPS = {
-  0: [{ key: "origAlloc", label: "Original allocation (hrs)", type: "number", placeholder: "40" }],
-  1: [
+  0:  [{ key: "origAlloc",   label: "Original allocation (hrs)", type: "number", placeholder: "40" }],
+  2:  [
     { key: "dd1",       label: "Draw days — DD1",     type: "number", placeholder: "10" },
     { key: "startPlan", label: "1st DT start (plan)", type: "date" },
   ],
-  6: [{ key: "draftRev",  label: "Drawing ref",        type: "text",   placeholder: "Rev A" }],
-  7: [{ key: "issueDate", label: "Issued to client",   type: "date" }],
-  10: [{ key: "revLabel", label: "Revision label",     type: "text",   placeholder: "Rev B" }],
-  11: [{ key: "signOffDate", label: "Signed off",      type: "date" }],
+  7:  [{ key: "draftRev",    label: "Drawing ref",        type: "text",   placeholder: "Rev A" }],
+  8:  [{ key: "issueDate",   label: "Issued to client",   type: "date" }],
+  11: [{ key: "revLabel",    label: "Revision label",     type: "text",   placeholder: "Rev B" }],
+  12: [{ key: "signOffDate", label: "Signed off",         type: "date" }],
 };
 
 // Ball In Court options — matches Notion's "Ball In Court" select options
@@ -82,7 +89,7 @@ window.cellStatus = function (item, idx) {
 };
 
 // Total number of workflow steps (update here if steps are added/removed)
-window.TOTAL_STEPS = 16;
+window.TOTAL_STEPS = 20;
 
 window.itemStatus = function (item) {
   if (item.progress >= window.TOTAL_STEPS) return "complete";

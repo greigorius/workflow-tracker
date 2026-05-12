@@ -14,62 +14,142 @@ const TASKS_DB    = process.env.NOTION_DB_TASKS;
 const PROJECTS_DB = process.env.NOTION_DB_PROJECTS;
 
 // Total steps — keep in sync with TOTAL_STEPS in public/data.js
-const TOTAL_STEPS = 16;
+const TOTAL_STEPS = 20;
 
-// ─── Step ↔ DM Phase mapping ─────────────────────────────────────────────────
+// ─── Step → Notion property mappings ─────────────────────────────────────────
+// Primary DM Phase written when a step becomes active.
+// Multi-phase steps (with sub-phases in data.js) use the first entry here.
 const STEP_TO_DM_PHASE = [
-  "Agree Scope",                // 0  — Set up scope
-  "Set Up Item & Drawing No's", // 1  — Item number and programme
-  "Review Design Intent",       // 2  — Design intent info and collab space
-  "Handed Off",                 // 3  — Hand off to DT for review
-  "Submit RFI's",               // 4  — Raise initial RFIs
-  "Coordinate Trades",          // 5  — Coordinate with other trades
-  "Review Drawings",            // 6  — Review DT approval draft
-  "Submit Drawings",            // 7  — Issue for client approval
-  "Review Comments",            // 8  — Review client comments with DT
-  "Coordinate Model",           // 9  — Coordinate queried comments
-  "Agree Program & Hours",      // 10 — Review DT revision
-  "Schedule Production",        // 11 — Issue revision for sign off
-  "Production Pack",            // 12 — Production Pack
-  "Schedule Task",              // 13 — Schedule Task
-  "Install",                    // 14 — Install
-  "As Built",                   // 15 — As Built
+  "Agree Scope",                 // 0  — Initiate
+  "Agree Scope",                 // 1  — Scope
+  "Set Up Item & Drawing No's",  // 2  — Launch
+  "Review Design Intent",        // 3  — Gather and Share
+  "Handover",                    // 4  — DT Review
+  "Submit RFI's",                // 5  — Raise Submittals
+  "Coordinate Trades",           // 6  — Trade Coordination
+  "Review Drawings",             // 7  — DT Draft
+  "Submit Drawings",             // 8  — Approval Submission
+  "Pending Response",            // 9  — Client Response
+  "Review Comments",             // 10 — Query Comments
+  "Handover",                    // 11 — DT Revision
+  "Submit Drawings",             // 12 — Revised Submission
+  "Pending Response",            // 13 — Client Sign Off
+  "Handover",                    // 14 — Pre-Production
+  "Schedule Production",         // 15 — Production Hand Off
+  "Production Coordination",     // 16 — Pre-Install
+  "Site Coordination",           // 17 — Install
+  "Handover",                    // 18 — Practical Completion
+  "Final Report",                // 19 — Close
 ];
 
-const DM_PHASE_TO_STEP = {};
-STEP_TO_DM_PHASE.forEach((phase, i) => { DM_PHASE_TO_STEP[phase] = i; });
-DM_PHASE_TO_STEP["Production Pack"] = 12;
-DM_PHASE_TO_STEP["Schedule Task"]   = 13;
-DM_PHASE_TO_STEP["Phase Complete"]  = TOTAL_STEPS;
-DM_PHASE_TO_STEP["Phase Blocked"]   = -1;
+const STEP_ITEM_STATUS = [
+  "Backlog",           // 0  — Initiate
+  "Set Up",            // 1  — Scope
+  "Set Up",            // 2  — Launch
+  "In Design",         // 3  — Gather and Share
+  "In Design",         // 4  — DT Review
+  "In Design",         // 5  — Raise Submittals
+  "In Design",         // 6  — Trade Coordination
+  "In Design",         // 7  — DT Draft
+  "In Design",         // 8  — Approval Submission
+  "Awaiting Approval", // 9  — Client Response
+  "In Design",         // 10 — Query Comments
+  "In Design",         // 11 — DT Revision
+  "In Design",         // 12 — Revised Submission
+  "Awaiting Approval", // 13 — Client Sign Off
+  "In Design",         // 14 — Pre-Production
+  "In Design",         // 15 — Production Hand Off
+  "In Production",     // 16 — Pre-Install
+  "On Site",           // 17 — Install
+  "In Design",         // 18 — Practical Completion
+  "Close Out",         // 19 — Close
+];
 
-function itemStatusForStep(stepIdx) {
-  if (stepIdx >= TOTAL_STEPS) return "Complete";
-  if (stepIdx >= 14)  return "On Site";
-  if (stepIdx >= 12)  return "In Production";
-  if (stepIdx === 8)  return "1st Comments Received";
-  if (stepIdx >= 9)   return "In Design - Revisions";
-  if (stepIdx >= 4)   return "In Design - First Issue";
-  return "Ongoing";
-}
+// Fixed BIC per step; null means the user sets it manually for that step.
+const STEP_BIC = [
+  "DM",         // 0  — Initiate
+  null,         // 1  — Scope (user-selectable)
+  "DM",         // 2  — Launch
+  "DM",         // 3  — Gather and Share
+  "DM",         // 4  — DT Review
+  "DM",         // 5  — Raise Submittals
+  null,         // 6  — Trade Coordination (user-selectable)
+  "DM",         // 7  — DT Draft
+  "DM",         // 8  — Approval Submission
+  "Contractor", // 9  — Client Response
+  null,         // 10 — Query Comments (user-selectable)
+  "DM",         // 11 — DT Revision
+  "DM",         // 12 — Revised Submission
+  "Architect",  // 13 — Client Sign Off
+  "DM",         // 14 — Pre-Production
+  "DM",         // 15 — Production Hand Off
+  "Production", // 16 — Pre-Install
+  "Site",       // 17 — Install
+  "DM",         // 18 — Practical Completion
+  "DM",         // 19 — Close
+];
+
+// Fallback: DM Phase → step index for items that predate the "DM Step" property.
+// Where multiple steps share a DM Phase, map to the earliest occurrence.
+const DM_PHASE_TO_STEP = {
+  "Agree Scope":                 0,
+  "Set Up Item & Drawing No's":  2,
+  "Review Design Intent":        3,
+  "Create Handover Pack":        3,
+  "Handover":                    4,
+  "Submit RFI's":                5,
+  "Create Samples":              5,
+  "Coordinate Trades":           6,
+  "Coordinate Model":            6,
+  "Review Drawings":             7,
+  "Submit Drawings":             8,
+  "Pending Response":            9,
+  "Review Comments":            10,
+  "Schedule Production":        15,
+  "Production Coordination":    16,
+  "Site Coordination":          17,
+  "Final Report":               19,
+  // Legacy phase names kept for backwards compat
+  "Handed Off":                  4,
+  "Agree Program & Hours":      11,
+  "Production Pack":            14,
+  "Schedule Task":              15,
+  // Sentinels
+  "Phase Complete":             TOTAL_STEPS,
+  "Phase Blocked":              -1,
+};
 
 // ─── Notion schema migration ──────────────────────────────────────────────────
 async function ensureNotionSchema() {
   try {
     const db = await notion.databases.retrieve({ database_id: TASKS_DB });
+
+    // Add any missing DM Phase select options
     const currentOptions = db.properties["DM Phase"]?.select?.options || [];
     const currentNames   = new Set(currentOptions.map((o) => o.name));
-    const toAdd = ["Production Pack", "Schedule Task"].filter((n) => !currentNames.has(n));
-    if (toAdd.length === 0) return;
-    await notion.databases.update({
-      database_id: TASKS_DB,
-      properties: {
-        "DM Phase": {
-          select: { options: [...currentOptions, ...toAdd.map((name) => ({ name }))] },
-        },
-      },
-    });
-    console.log(`✅ Added DM Phase options: ${toAdd.join(", ")}`);
+    const requiredPhases = [
+      "Agree Scope", "Set Up Item & Drawing No's", "Review Design Intent",
+      "Create Handover Pack", "Handover", "Submit RFI's", "Create Samples",
+      "Coordinate Trades", "Coordinate Model", "Review Drawings", "Submit Drawings",
+      "Pending Response", "Review Comments", "Schedule Production",
+      "Production Coordination", "Site Coordination", "Final Report", "Phase Complete",
+    ];
+    const toAdd = requiredPhases.filter((n) => !currentNames.has(n));
+    const schemaUpdates = {};
+    if (toAdd.length > 0) {
+      schemaUpdates["DM Phase"] = {
+        select: { options: [...currentOptions, ...toAdd.map((name) => ({ name }))] },
+      };
+    }
+
+    // Add "DM Step" number property if absent (primary step-index tracker)
+    if (!db.properties["DM Step"]) {
+      schemaUpdates["DM Step"] = { number: { format: "number" } };
+    }
+
+    if (Object.keys(schemaUpdates).length === 0) return;
+    await notion.databases.update({ database_id: TASKS_DB, properties: schemaUpdates });
+    console.log("✅ Notion schema updated:", Object.keys(schemaUpdates).join(", "));
   } catch (err) {
     console.warn("⚠️  Could not update Notion schema:", err.message);
   }
@@ -117,13 +197,18 @@ function notionPageToItem(page, projectsMap) {
   const bic      = p["Ball In Court"]?.select?.name || "DM";
   const priority = (p["Priority"]?.select?.name || "Medium").toLowerCase();
 
+  const dmStep    = p["DM Step"]?.number;   // preferred — exact step index
   const dmPhase   = p["DM Phase"]?.select?.name;
   const isBlocked = p["Item Status"]?.status?.name === "Blocked";
 
   let progress    = 0;
   let blockerStep = null;
 
-  if (dmPhase === "Phase Complete") {
+  if (typeof dmStep === "number") {
+    // "DM Step" is the reliable source of truth
+    progress = dmStep;
+    if (isBlocked) blockerStep = progress;
+  } else if (dmPhase === "Phase Complete") {
     progress = TOTAL_STEPS;
   } else if (dmPhase && dmPhase in DM_PHASE_TO_STEP && DM_PHASE_TO_STEP[dmPhase] >= 0) {
     progress = DM_PHASE_TO_STEP[dmPhase];
@@ -174,15 +259,28 @@ async function fetchAllTasks() {
     }
     cursor = res.has_more ? res.next_cursor : undefined;
   } while (cursor);
-  // Exclude items whose name contains "PCSA" (case-insensitive)
   return items.filter((it) => !it.name.toUpperCase().includes("PCSA"));
 }
 
 // ─── Property helpers ─────────────────────────────────────────────────────────
-function dmPhasePatch(stepIdx) {
-  const phase = stepIdx >= TOTAL_STEPS ? "Phase Complete" : STEP_TO_DM_PHASE[stepIdx];
-  return { select: { name: phase } };
+function stepNotionProps(stepIdx) {
+  const isComplete = stepIdx >= TOTAL_STEPS;
+  const props = {
+    "DM Step":    { number: stepIdx },
+    "DM Phase":   isComplete
+      ? { select: { name: "Phase Complete" } }
+      : { select: { name: STEP_TO_DM_PHASE[stepIdx] } },
+    "Item Status": { status: { name: isComplete ? "Complete" : STEP_ITEM_STATUS[stepIdx] } },
+  };
+  if (isComplete) {
+    props["Ball In Court"] = { select: null };
+  } else {
+    const bic = STEP_BIC[stepIdx];
+    if (bic) props["Ball In Court"] = { select: { name: bic } };
+  }
+  return props;
 }
+
 function itemStatusPatch(statusName) { return { status: { name: statusName } }; }
 
 const PROP_KEY_MAP = {
@@ -223,11 +321,7 @@ app.patch("/api/items/:pageId/advance", async (req, res) => {
   try {
     await notion.pages.update({
       page_id: pageId,
-      properties: {
-        "DM Phase":    dmPhasePatch(nextStep),
-        "Item Status": itemStatusPatch(itemStatusForStep(nextStep)),
-        "Blocker":     { multi_select: [] },
-      },
+      properties: { ...stepNotionProps(nextStep), "Blocker": { multi_select: [] } },
     });
     res.json({ ok: true, newStep: nextStep });
   } catch (err) { console.error("advance", err); res.status(500).json({ error: err.message }); }
@@ -240,10 +334,7 @@ app.patch("/api/items/:pageId/undo", async (req, res) => {
   try {
     await notion.pages.update({
       page_id: pageId,
-      properties: {
-        "DM Phase":    dmPhasePatch(prevStep),
-        "Item Status": itemStatusPatch(itemStatusForStep(prevStep)),
-      },
+      properties: stepNotionProps(prevStep),
     });
     res.json({ ok: true, newStep: prevStep });
   } catch (err) { console.error("undo", err); res.status(500).json({ error: err.message }); }
@@ -269,11 +360,14 @@ app.patch("/api/items/:pageId/block", async (req, res) => {
 app.patch("/api/items/:pageId/unblock", async (req, res) => {
   const { pageId } = req.params;
   const { stepIdx } = req.body;
+  const status = (stepIdx != null && stepIdx < TOTAL_STEPS)
+    ? STEP_ITEM_STATUS[stepIdx]
+    : "In Design";
   try {
     await notion.pages.update({
       page_id: pageId,
       properties: {
-        "Item Status": itemStatusPatch(itemStatusForStep(stepIdx ?? 0)),
+        "Item Status": itemStatusPatch(status),
         "Blocker":     { multi_select: [] },
       },
     });

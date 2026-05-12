@@ -261,6 +261,10 @@ function notionPageToItem(page, projectsMap) {
   if (dd1 != null) props.dd1 = String(dd1);
   const startPlan = p["1st DT Start (Plan)"]?.date?.start;
   if (startPlan) props.startPlan = startPlan;
+  const startActual = p["1st DT Start (Actual)"]?.date?.start;
+  if (startActual) props.startActual = startActual;
+  const prodDate = p["Production Date (Actual)"]?.date?.start;
+  if (prodDate) props.prodDate = prodDate;
   const issueDate = p["1st Submission Date (Actual)"]?.date?.start;
   if (issueDate) props.issueDate = issueDate;
   if (drawingRef) props.draftRev = drawingRef;
@@ -298,12 +302,14 @@ async function fetchAllTasks() {
 // ─── Property helpers ─────────────────────────────────────────────────────────
 function stepNotionProps(stepIdx) {
   const isComplete = stepIdx >= TOTAL_STEPS;
+  const pct = Math.round((Math.min(stepIdx, TOTAL_STEPS) / TOTAL_STEPS) * 100);
   const props = {
-    "DM Step":    { number: stepIdx },
-    "DM Phase":   isComplete
+    "DM Step":            { number: stepIdx },
+    "DM Phase":           isComplete
       ? { select: { name: "Phase Complete" } }
       : { select: { name: STEP_TO_DM_PHASE[stepIdx] } },
-    "Item Status": { status: { name: isComplete ? "Complete" : STEP_ITEM_STATUS[stepIdx] } },
+    "Item Status":        { status: { name: isComplete ? "Complete" : STEP_ITEM_STATUS[stepIdx] } },
+    "Estimated Progress": { number: pct },
   };
   if (isComplete) {
     props["Ball In Court"] = { select: null };
@@ -320,6 +326,8 @@ const PROP_KEY_MAP = {
   origAlloc:   { name: "Original Allocation (Hrs)",        type: "number"     },
   dd1:         { name: "Draw Days - DD1",                  type: "number"     },
   startPlan:   { name: "1st DT Start (Plan)",              type: "date"       },
+  startActual: { name: "1st DT Start (Actual)",            type: "date"       },
+  prodDate:    { name: "Production Date (Actual)",         type: "date"       },
   issueDate:   { name: "1st Submission Date (Actual)",     type: "date"       },
   draftRev:    { name: "Drawing Ref",                      type: "rich_text"  },
   revLabel:    { name: "Drawing Ref",                      type: "rich_text"  },
@@ -424,9 +432,13 @@ app.patch("/api/items/:pageId/subphase", async (req, res) => {
       res.json({ ok: true, advanced: true, newStep: nextStep });
     } else {
       // Advance DM Phase to next sub-phase; DM Step stays the same
+      const subPct = Math.round(((stepIdx + nextSubPhaseIdx / subPhases.length) / TOTAL_STEPS) * 100);
       await notion.pages.update({
         page_id: pageId,
-        properties: { "DM Phase": { select: { name: subPhases[nextSubPhaseIdx] } } },
+        properties: {
+          "DM Phase":           { select: { name: subPhases[nextSubPhaseIdx] } },
+          "Estimated Progress": { number: subPct },
+        },
       });
       res.json({ ok: true, advanced: false, newSubPhaseIdx: nextSubPhaseIdx });
     }

@@ -38,17 +38,19 @@ window.STEPS = [
   { name: "Close",                short: "Close",      dmPhases: ["Final Report"],                                                     itemStatus: "Close Out",         bic: "DM",         canBlock: false },
 ];
 
-// Steps that show property inputs in the Inspector
+// Steps that show property inputs in the Inspector (1-indexed in UI, 0-indexed here)
 window.STEP_PROPS = {
-  0:  [{ key: "origAlloc",   label: "Original allocation (hrs)", type: "number", placeholder: "40" }],
-  2:  [
-    { key: "dd1",       label: "Draw days — DD1",     type: "number", placeholder: "10" },
-    { key: "startPlan", label: "1st DT start (plan)", type: "date" },
+  2: [  // Step 3 — Launch
+    { key: "origAlloc",  label: "Original Hours Allocation", type: "number", placeholder: "40" },
+    { key: "startPlan",  label: "1st DT Start (Plan)",       type: "date" },
+    { key: "dd1",        label: "Draw Days - DD1",           type: "number", placeholder: "10" },
   ],
-  7:  [{ key: "draftRev",    label: "Drawing ref",        type: "text",   placeholder: "Rev A" }],
-  8:  [{ key: "issueDate",   label: "Issued to client",   type: "date" }],
-  11: [{ key: "revLabel",    label: "Revision label",     type: "text",   placeholder: "Rev B" }],
-  12: [{ key: "signOffDate", label: "Signed off",         type: "date" }],
+  4: [  // Step 5 — DT Review
+    { key: "startActual", label: "1st DT Start (Actual)", type: "date" },
+  ],
+  15: [  // Step 16 — Production Hand Off
+    { key: "prodDate", label: "Production Date (Actual)", type: "date" },
+  ],
 };
 
 // Ball In Court options — matches Notion's "Ball In Court" select options
